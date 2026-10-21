@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-21T16:52:22.005Z",
+  "tickets": [
+    {
+      "id": "TICK-001",
+      "title": "Sample ticket",
+      "description": "Testing binary execution",
+      "status": "in_progress",
+      "priority": "urgent",
+      "tags": [
+        "test",
+        "cli",
+        "wip"
+      ],
+      "createdAt": "2026-10-21T11:46:42.094Z",
+      "updatedAt": "2026-10-21T11:48:42.091Z"
+    },
+    {
+      "id": "TICK-002",
+      "title": "test1",
+      "description": "test description",
+      "status": "in_progress",
+      "priority": "low",
+      "tags": [
+        "auth"
+      ],
+      "createdAt": "2026-10-21T16:40:31.734Z",
+      "updatedAt": "2026-10-21T16:42:44.796Z"
+    },
+    {
+      "id": "TICK-003",
+      "title": "test2",
+      "description": "description",
+      "status": "open",
+      "priority": "high",
+      "tags": [
+        "test"
+      ],
+      "createdAt": "2026-10-21T16:52:22.004Z",
+      "updatedAt": "2026-10-21T16:52:22.004Z"
+    }
+  ]
+}

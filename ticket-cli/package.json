@@ -1,0 +1,36 @@
+{
+  "name": "ticket-cli",
+  "version": "1.0.0",
+  "description": "MindX Ticket Manager CLI built with TDD and Layered Architecture",
+  "type": "module",
+  "bin": {
+    "tickets": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "ticket",
+    "cli",
+    "tdd",
+    "commander"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production / Build Output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Test Coverage & Reports
+coverage/
+*.lcov
+.nyc_output/
+.vitest/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime & Temporary Files
+# (including atomic write temporary files from repository layer)
+*.tmp
+*.tmp.*
+.temp/
+.cache/
+
+# Local Application Data (uncomment if you want to keep runtime ticket databases local)
+# tickets.json
+# *.local.json
+
+# Environment Variables & Local Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE & Editor Files
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
