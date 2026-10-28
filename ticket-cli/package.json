@@ -4,11 +4,14 @@
   "description": "MindX Ticket Manager CLI built with TDD and Layered Architecture",
   "type": "module",
   "bin": {
-    "tickets": "./dist/index.js"
+    "tickets": "./dist/index.js",
+    "kb": "./dist/kb.js"
   },
   "scripts": {
     "build": "tsc",
     "start": "tsx src/index.ts",
+    "kb": "tsx src/kb.ts",
+    "kb:server": "tsx src/kb/server/kb-server.ts",
     "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
