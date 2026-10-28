@@ -1,13 +1,25 @@
 # Week 2: Controlled AI Collaboration & TDD Log
+
+**Author:** Nguyễn Minh Chiến (GitHub: @Shiho0107) & AI Pair Programming  
+**Context:** MindX Software Engineer Internship - Week 2 (Ticket Manager CLI)  
+**Reference:** Week 1 AI Training Workflows (`research-tdd.md`)  
+
+### Attribution & Roles
+- **Nguyễn Minh Chiến (Engineer & Architect):** Sets architectural requirements, domain contracts (`src/models/ticket.ts`), test specifications, identifies data safety hazards (rejecting unsafe `copyFile` fallback and specifying fail-safe atomic persistence), reviews and refactors AI-generated code, referees automated test suites, and manages Git commits.
+- **AI Pair Programmer:** Generates minimal implementations and test scaffolding under strict constraints, guided by type contracts and failing test assertions.
+
+---
+
 ## 1. Overview & Core Mindset
 
 In Week 1, we established the fundamental engineering rule:
 > **"You are the architect, AI is the pair programmer. Never delegate specification or architectural control to the AI."**
 
 During Week 2, this rule was put into practice by enforcing:
-1. **Red-Green-Refactor discipline:** Tests were drafted and executed *before* implementation code was generated.
+1. **Red-Green-Refactor discipline:** Tests were drafted and executed *before* implementation code was generated, verified through distinct git commits.
 2. **Specification-First constraints:** Clear DTO contracts, enum types, and error classes defined boundaries before prompts were written.
 3. **Automated test refereeing:** Every AI suggestion was immediately validated through test runs (`npm test`). If a test failed, the test failure was used to constrain further iterations.
+4. **Conventional Commits standard:** Commits adhere to standard prefixes (`test(ticket):`, `feat(ticket):`, `fix(ticket):`, `refactor(ticket):`, `docs(ticket):`).
 
 ---
 
@@ -34,7 +46,7 @@ Instead of a monolithic prompt asking the AI to "Build a Ticket CLI with Command
 
 ---
 
-### Workflow 2: Solution Exploration (Storage & Concurrency)
+### Workflow 2: Solution Exploration (Storage, Concurrency & Data Safety)
 
 When architecting file persistence for `tickets.json`, we evaluated multiple design options:
 
@@ -42,10 +54,13 @@ When architecting file persistence for `tickets.json`, we evaluated multiple des
 | :--- | :--- | :--- | :--- |
 | **Option A: Direct `fs.writeFile`** | Minimal code, straightforward | High risk of file corruption if process crashes mid-write; no concurrent safety | ❌ Rejected |
 | **Option B: Embedded SQLite (`better-sqlite3`)** | ACID transactions, queries | Requires native C++ compilation; adds binary dependencies across OSs | ❌ Rejected |
-| **Option C: Atomic Write (`temp file -> rename/copyFile`)** | Zero third-party runtime dependencies; crash-resilient; cross-platform | Requires temporary file cleanup & Windows lock retry fallback | ✅ **Selected** |
+| **Option C: Naive `copyFile` Fallback** | Avoids rename failures on file locks | **Severe data safety risk:** `copyFile` is non-atomic and truncates destination file; if interrupted, it corrupts existing data | ❌ Rejected |
+| **Option D: Fail-Safe Atomic Write (`temp file -> rename`)** | Zero third-party runtime dependencies; crash-resilient; cross-platform atomic swap | Requires temporary file cleanup & fail-safe error propagation | ✅ **Selected** |
 
-**Windows Platform Edge Case Identified:**
-On Windows environments, atomic file renaming (`fs.rename`) can occasionally throw `EPERM` or `EBUSY` if an antivirus or file indexing process momentarily touches the target file. We refined the implementation to include a fallback `fs.copyFile` + `fs.unlink` strategy, ensuring 100% reliable execution.
+**Data Safety Analysis (Why `copyFile` fallback is dangerous):**
+- In earlier iterations, an AI draft proposed falling back to `fs.copyFile(tempFile, targetFile)` whenever `fs.rename` failed.
+- **Architectural Critique:** `fs.copyFile` is non-atomic. It directly streams into the existing destination file. If power is lost, process crashes, or disk space runs out during the copy, the destination file is left half-written, permanently destroying existing tickets.
+- **Fail-Safe Design:** When writing or renaming fails, the storage system must **fail safely**: clean up the temporary file, leave the existing target file completely untouched and intact, and throw a clear `StorageError`.
 
 ---
 
@@ -75,9 +90,130 @@ Below are concrete examples where AI generated suboptimal or flawed code and our
 
 ---
 
-## 3. Summary of Results
+## 3. Real TDD Cycle Evidence: Fail-Safe Atomic Persistence
+
+To demonstrate verified **Red → Green → Refactor** discipline in Git history, we executed a complete TDD cycle addressing storage resilience and I/O error handling.
+
+### Step 1: 🔴 RED Phase — Behavioral Assertion Test
+- **Goal:** Write an integration test that simulates an I/O error during atomic rename, asserting that the repository fails safely without corrupting the existing database file.
+- **Test Implementation (`tests/integration/json-file-ticket.repository.test.ts`):**
+  ```typescript
+  it('fails safely and preserves original file data when I/O error occurs during write/rename', async () => {
+    const repo = new JsonFileTicketRepository(storagePath);
+    await repo.create({ id: 'TICK-001', title: 'Initial Ticket', ... });
+
+    const contentBefore = await fs.readFile(storagePath, 'utf-8');
+
+    // Simulate I/O disk failure during atomic rename
+    vi.mocked(fs.rename).mockRejectedValueOnce(new Error('Simulated I/O disk failure on rename'));
+
+    // Assert that operation rejects with StorageError
+    await expect(repo.create({ id: 'TICK-002', title: 'Unsafe Ticket', ... })).rejects.toThrow(StorageError);
+
+    // Verify existing storage file remains untouched
+    const contentAfter = await fs.readFile(storagePath, 'utf-8');
+    expect(contentAfter).toBe(contentBefore);
+
+    // Verify temp files are cleaned up
+    const dirFiles = await fs.readdir(path.dirname(storagePath));
+    expect(dirFiles.filter(f => f.includes('.tmp.'))).toEqual([]);
+  });
+  ```
+- **Test Failure Output (Assertion Error):**
+  ```text
+  FAIL  tests/integration/json-file-ticket.repository.test.ts > fails safely and preserves original file data when I/O error occurs during write/rename
+  AssertionError: promise resolved "{ id: 'TICK-002', …(7) }" instead of rejecting
+
+  - Expected
+  + Received
+  - Error { "message": "rejected promise" }
+  + { id: 'TICK-002', title: 'Unsafe Ticket', ... }
+  ```
+  *(Reason: The previous code caught `rename` errors and silently fell back to `copyFile`, resolving the call and modifying the file instead of failing safely!)*
+- **Git Commit (RED):** `fd8b3b1` — `test(ticket): add test for fail-safe persistence on storage rename error`
+
+---
+
+### Step 2: 🟢 GREEN Phase — Minimal Fail-Safe Implementation
+- **Goal:** Make the test pass with minimal, fail-safe code by removing the unsafe `copyFile` fallback and ensuring temporary files are cleaned up while the target file remains untouched.
+- **Code Diff (`src/repositories/json-file-ticket.repository.ts`):**
+  ```diff
+      try {
+        await fs.writeFile(tempFile, content, 'utf-8');
+  -     try {
+  -       await fs.rename(tempFile, this.filePath);
+  -     } catch {
+  -       // Fallback for Windows lock issues: copyFile then unlink
+  -       await fs.copyFile(tempFile, this.filePath);
+  -       await fs.unlink(tempFile);
+  -     }
+  +     await fs.rename(tempFile, this.filePath);
+      } catch (writeErr) {
+        try {
+          await fs.unlink(tempFile);
+        } catch {}
+        throw new StorageError(...);
+      }
+  ```
+- **Test Result:**
+  ```text
+  ✓ tests/unit/ticket.service.test.ts (24 tests)
+  ✓ tests/integration/json-file-ticket.repository.test.ts (8 tests)
+  ✓ tests/integration/cli.test.ts (10 tests)
+  Test Files  3 passed (3)
+  Tests       42 passed (42)
+  ```
+- **Git Commit (GREEN):** `5cff67b` — `fix(ticket): remove unsafe copyFile fallback to ensure fail-safe atomic write`
+
+---
+
+### Step 3: 🔵 REFACTOR Phase — Encapsulation & Separation of Concerns
+- **Goal:** Extract atomic write mechanics and cleanup logic into dedicated private methods (`atomicWriteFile`, `safeUnlink`), decoupling the low-level filesystem atomicity contract from JSON serialization logic.
+- **Code Structure (`src/repositories/json-file-ticket.repository.ts`):**
+  ```typescript
+  private async safeUnlink(filePath: string): Promise<void> {
+    try {
+      await fs.unlink(filePath);
+    } catch {
+      // Ignore unlink errors during cleanup
+    }
+  }
+
+  private async atomicWriteFile(targetPath: string, content: string): Promise<void> {
+    const tempFile = `${targetPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+    try {
+      await fs.writeFile(tempFile, content, 'utf-8');
+      await fs.rename(tempFile, targetPath);
+    } catch (writeErr) {
+      await this.safeUnlink(tempFile);
+      throw new StorageError(
+        `Failed to write to storage file at "${targetPath}": ${(writeErr as Error).message}`,
+        writeErr
+      );
+    }
+  }
+
+  private async writeData(data: StorageData): Promise<void> {
+    await this.ensureDirectory();
+    data.updatedAt = new Date().toISOString();
+    const content = JSON.stringify(data, null, 2);
+    await this.atomicWriteFile(this.filePath, content);
+  }
+  ```
+- **Test Verification:**
+  - `npm test`: 42/42 tests pass.
+  - `npm run typecheck`: 0 TypeScript errors.
+- **Git Commit (REFACTOR):** `29a199d` — `refactor(ticket): extract atomicWriteFile and safeUnlink in JsonFileTicketRepository`
+
+---
+
+## 4. Summary of Results
 
 - **Total Test Suites:** 3 (Unit Service, Repository Integration, CLI E2E)
-- **Total Passing Tests:** 41 / 41 (100% pass rate)
-- **Zero-Dependency Core:** Only `commander` as production dependency; native Node `fs/promises` for storage.
-- **Deterministic CI/CD Ready:** Fast test runs (average test run ~160ms).
+- **Total Passing Tests:** 42 / 42 (100% pass rate)
+- **Git Commits & Standards:**
+  - `fd8b3b1` `test(ticket): add test for fail-safe persistence on storage rename error`
+  - `5cff67b` `fix(ticket): remove unsafe copyFile fallback to ensure fail-safe atomic write`
+  - `29a199d` `refactor(ticket): extract atomicWriteFile and safeUnlink in JsonFileTicketRepository`
+- **Zero-Dependency Core:** Only `commander` as runtime dependency; native Node `fs/promises` for storage.
+- **Deterministic CI/CD Ready:** Fast test runs (average test run ~200ms).
