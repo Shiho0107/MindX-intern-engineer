@@ -33,6 +33,20 @@ Tập trung xây dựng tư duy kỹ thuật (engineering mindset), kỷ luật 
   - **Tech Stack Trade-offs:** Phân tích và lựa chọn công nghệ độc lập (Zero-dependency với native `node:test` & `node:assert`).
   - **Iterative Refinement:** Tự phản biện, tái cấu trúc mã (Atomic write, xử lý ngoại lệ I/O trên Windows/POSIX) và tự kiểm chứng độc lập qua tài liệu chính thức mà không phụ thuộc vào AI.
 
+### 🗓️ [Week 2: Ticket Manager CLI (`ticket-cli`)](./ticket-cli/README.md)
+Xây dựng công cụ CLI quản lý task và ticket hoàn chỉnh theo phương pháp TDD:
+- **Kiến trúc phân tầng 4 lớp:** Commands, Service, Repository Interfaces, Models.
+- **Fail-Safe Atomic Write:** Cơ chế lưu trữ file JSON an toàn, chống rủi ro ghi dở (corrupted write) khi gặp sự cố I/O.
+- **CLI Commands:** `tickets create`, `tickets list`, `tickets show`, `tickets update`.
+
+### 🗓️ [Week 3: Knowledge Base API Integration](./ticket-cli/docs/week-3-kb-integration.md)
+Mở rộng Ticket CLI để tích hợp với External Knowledge Base API (Email Templates, Tài liệu kỹ thuật, Team info):
+- **Mock-First API Integration:** Triển khai `MockKBClient` (seed 3 tài liệu thực tế) phục vụ kiểm thử cô lập.
+- **Production HTTP Client:** `HTTPKBClient` gọi RESTful API qua HTTP POST với native `fetch` (Zero external runtime dependencies).
+- **Client Factory & Environment Switching:** Hoán đổi client mượt mà qua biến môi trường (`KB_CLIENT_TYPE=mock|http` hoặc `KB_API_URL`).
+- **CLI Commands:** `kb search`, `kb list`, `kb retrieve`, `kb add` (hỗ trợ đọc trực tiếp từ file Markdown).
+- **Standalone KB Server:** Mock API Server độc lập phục vụ kiểm thử E2E cục bộ.
+
 ---
 
 ## 🛠️ Công nghệ & Công cụ (Tech Stack & Tools)

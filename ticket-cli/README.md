@@ -16,6 +16,12 @@
   - [2. List Tickets (`tickets list`)](#2-list-tickets-tickets-list)
   - [3. Show Ticket Details (`tickets show`)](#3-show-ticket-details-tickets-show)
   - [4. Update Ticket (`tickets update`)](#4-update-ticket-tickets-update)
+- [Knowledge Base API Integration (Week 3)](#knowledge-base-api-integration-week-3)
+  - [1. Search KB (`tickets kb search`)](#1-search-kb-tickets-kb-search)
+  - [2. List Documents (`tickets kb list`)](#2-list-documents-tickets-kb-list)
+  - [3. Retrieve Document (`tickets kb retrieve`)](#3-retrieve-document-tickets-kb-retrieve)
+  - [4. Add Document (`tickets kb add`)](#4-add-document-tickets-kb-add)
+  - [Mock vs. HTTP Client Configuration](#mock-vs-http-client-configuration)
 - [Data Storage Schema](#data-storage-schema)
 - [Error Handling & Resilience](#error-handling--resilience)
 - [Controlled AI Workflows & Verification](#controlled-ai-workflows--verification)
@@ -237,6 +243,62 @@ tickets update <id> [options]
 ```bash
 tickets update TICK-001 --status in_progress --priority urgent
 ```
+
+---
+
+## Knowledge Base API Integration (Week 3)
+
+The CLI integrates with an external Knowledge Base (KB) API to query email templates, DevOps schedules, and technical guides. Full architectural details and sequence diagrams are in [`docs/week-3-kb-integration.md`](./docs/week-3-kb-integration.md).
+
+Commands can be invoked either as subcommands via `tickets kb <command>` or directly via the dedicated binary `kb <command>`.
+
+### 1. Search KB (`tickets kb search`)
+Search documents by keyword across titles, tags, and Markdown bodies:
+```bash
+# Search for customer response templates
+tickets kb search "response" --top-k 3
+
+# Or with standalone kb binary
+kb search "schedule"
+```
+
+### 2. List Documents (`tickets kb list`)
+List documents with optional node hierarchy path filtering:
+```bash
+# List all templates
+tickets kb list --node /templates
+
+# List team documents up to 5 items
+tickets kb list --node /team/devops --limit 5
+```
+
+### 3. Retrieve Document (`tickets kb retrieve`)
+Display complete document details and formatted Markdown body:
+```bash
+tickets kb retrieve doc-001
+```
+
+### 4. Add Document (`tickets kb add`)
+Add a new document from a local markdown file or inline options:
+```bash
+# Add from markdown file (title auto-extracted from first '# Header')
+tickets kb add --file ./template.md --path /templates/sms --tags sms,shipping
+
+# Add inline content
+tickets kb add --title "Dev Guide" --content "Setup steps..." --path /docs/guides --tags guide,dev
+```
+
+### Mock vs. HTTP Client Configuration
+Clients are swappable via environment variables:
+- **Default (Mock Client):** No server needed; uses seeded in-memory client.
+- **HTTP Mode (Real API):**
+  1. Start the local KB server: `npm run kb:server`
+  2. Set environment variables:
+     ```bash
+     export KB_CLIENT_TYPE="http"
+     export KB_API_URL="http://localhost:3000"
+     ```
+     *(In PowerShell: `$env:KB_CLIENT_TYPE="http"; $env:KB_API_URL="http://localhost:3000"`)*
 
 ---
 
