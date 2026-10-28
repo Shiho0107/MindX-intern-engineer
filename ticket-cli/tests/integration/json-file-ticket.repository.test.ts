@@ -1,10 +1,23 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { JsonFileTicketRepository } from '../../src/repositories/json-file-ticket.repository.js';
 import { StorageError } from '../../src/errors/ticket-errors.js';
 import { Ticket } from '../../src/models/ticket.js';
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      rename: vi.fn((...args: Parameters<typeof actual.rename>) => actual.rename(...args))
+    },
+    rename: vi.fn((...args: Parameters<typeof actual.rename>) => actual.rename(...args))
+  };
+});
+
 
 describe('JsonFileTicketRepository Integration Tests', () => {
   let tempDir: string;
@@ -171,4 +184,46 @@ describe('JsonFileTicketRepository Integration Tests', () => {
     await expect(repo.findAll()).rejects.toThrow(StorageError);
     await expect(repo.findAll()).rejects.toThrow(/Failed to parse storage file/);
   });
+
+  it('fails safely and preserves original file data when I/O error occurs during write/rename', async () => {
+    const repo = new JsonFileTicketRepository(storagePath);
+    await repo.create({
+      id: 'TICK-001',
+      title: 'Initial Ticket',
+      description: 'Must survive I/O error',
+      status: 'open',
+      priority: 'high',
+      tags: ['critical'],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    const contentBefore = await fs.readFile(storagePath, 'utf-8');
+
+    // Simulate an I/O failure on rename (e.g. disk failure or permission error)
+    vi.mocked(fs.rename).mockRejectedValueOnce(new Error('Simulated I/O disk failure on rename'));
+
+    await expect(
+      repo.create({
+        id: 'TICK-002',
+        title: 'Unsafe Ticket',
+        description: 'Should not corrupt storage',
+        status: 'open',
+        priority: 'medium',
+        tags: ['test'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })
+    ).rejects.toThrow(StorageError);
+
+    // Verify that the existing storage file remained completely untouched (fail-safe)
+    const contentAfter = await fs.readFile(storagePath, 'utf-8');
+    expect(contentAfter).toBe(contentBefore);
+
+    // Verify no temporary files were left behind in the storage directory
+    const dirFiles = await fs.readdir(path.dirname(storagePath));
+    const tempFiles = dirFiles.filter(f => f.includes('.tmp.'));
+    expect(tempFiles).toEqual([]);
+  });
 });
+
