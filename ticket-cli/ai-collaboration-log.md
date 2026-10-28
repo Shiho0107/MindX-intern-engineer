@@ -1,11 +1,4 @@
 # Week 2: Controlled AI Collaboration & TDD Log
-
-**Author:** ThuanTV & AI Pair Programming  
-**Context:** MindX Software Engineer Internship - Week 2 (Ticket Manager CLI)  
-**Reference:** Week 1 AI Training Workflows (`research-tdd.md`)
-
----
-
 ## 1. Overview & Core Mindset
 
 In Week 1, we established the fundamental engineering rule:
