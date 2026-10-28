@@ -47,29 +47,35 @@ export class JsonFileTicketRepository implements ITicketRepository {
     }
   }
 
+  private async safeUnlink(filePath: string): Promise<void> {
+    try {
+      await fs.unlink(filePath);
+    } catch {
+      // Ignore unlink errors during cleanup
+    }
+  }
+
+  private async atomicWriteFile(targetPath: string, content: string): Promise<void> {
+    // Atomic write pattern: write to unique temp file then rename
+    const tempFile = `${targetPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+
+    try {
+      await fs.writeFile(tempFile, content, 'utf-8');
+      await fs.rename(tempFile, targetPath);
+    } catch (writeErr) {
+      await this.safeUnlink(tempFile);
+      throw new StorageError(
+        `Failed to write to storage file at "${targetPath}": ${(writeErr as Error).message}`,
+        writeErr
+      );
+    }
+  }
+
   private async writeData(data: StorageData): Promise<void> {
     await this.ensureDirectory();
     data.updatedAt = new Date().toISOString();
     const content = JSON.stringify(data, null, 2);
-
-    // Atomic write pattern: write to unique temp file then rename
-    const tempFile = `${this.filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
-
-    try {
-      await fs.writeFile(tempFile, content, 'utf-8');
-      await fs.rename(tempFile, this.filePath);
-    } catch (writeErr) {
-      // Clean up temp file if still around
-      try {
-        await fs.unlink(tempFile);
-      } catch {
-        // Ignore unlink error
-      }
-      throw new StorageError(
-        `Failed to write to storage file at "${this.filePath}": ${(writeErr as Error).message}`,
-        writeErr
-      );
-    }
+    await this.atomicWriteFile(this.filePath, content);
   }
 
   async create(ticket: Ticket): Promise<Ticket> {
