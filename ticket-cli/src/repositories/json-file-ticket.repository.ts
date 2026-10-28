@@ -57,13 +57,7 @@ export class JsonFileTicketRepository implements ITicketRepository {
 
     try {
       await fs.writeFile(tempFile, content, 'utf-8');
-      try {
-        await fs.rename(tempFile, this.filePath);
-      } catch {
-        // Fallback for Windows lock issues: copyFile then unlink
-        await fs.copyFile(tempFile, this.filePath);
-        await fs.unlink(tempFile);
-      }
+      await fs.rename(tempFile, this.filePath);
     } catch (writeErr) {
       // Clean up temp file if still around
       try {
