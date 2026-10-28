@@ -55,9 +55,9 @@ describe('MockKBClient Unit Tests', () => {
     });
 
     it('finds documents matching tags', async () => {
-      const results = await client.search('devops');
+      const results = await client.search('support');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].id).toBe('doc-002');
+      expect(results[0].id).toBe('doc-001');
       expect(results[0].matchType).toBe('tag');
     });
 
