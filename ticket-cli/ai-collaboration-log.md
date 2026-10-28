@@ -1,9 +1,4 @@
 # Week 2: Controlled AI Collaboration & TDD Log
-
-**Author:** Nguyễn Minh Chiến (GitHub: @Shiho0107) & AI Pair Programming  
-**Context:** MindX Software Engineer Internship - Week 2 (Ticket Manager CLI)  
-**Reference:** Week 1 AI Training Workflows (`research-tdd.md`)  
-
 ### Attribution & Roles
 - **Nguyễn Minh Chiến (Engineer & Architect):** Sets architectural requirements, domain contracts (`src/models/ticket.ts`), test specifications, identifies data safety hazards (rejecting unsafe `copyFile` fallback and specifying fail-safe atomic persistence), reviews and refactors AI-generated code, referees automated test suites, and manages Git commits.
 - **AI Pair Programmer:** Generates minimal implementations and test scaffolding under strict constraints, guided by type contracts and failing test assertions.
